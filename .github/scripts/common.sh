@@ -1,52 +1,53 @@
 #!/usr/bin/env bash
 
 ###############################################################################
+# GEOIP RouterOS Builder
 # Common library
 ###############################################################################
 
 set -euo pipefail
+
+###############################################################################
+# Load configuration
+###############################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "${SCRIPT_DIR}/config.sh"
 
 ###############################################################################
-# Console messages
+# Logging
 ###############################################################################
 
+timestamp() {
+
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+
+}
+
 info() {
-    echo
-    echo "==> $*"
+
+    echo "[INFO ] $(timestamp) $*"
+
 }
 
 warn() {
-    echo
-    echo "WARNING: $*"
+
+    echo "[WARN ] $(timestamp) $*" >&2
+
+}
+
+error() {
+
+    echo "[ERROR] $(timestamp) $*" >&2
+
 }
 
 die() {
-    echo
-    echo "ERROR: $*"
+
+    error "$*"
+
     exit 1
-}
-
-###############################################################################
-# File checks
-###############################################################################
-
-require_file() {
-
-    local FILE="$1"
-
-    [[ -f "$FILE" ]] || die "File not found: $FILE"
-
-}
-
-require_directory() {
-
-    local DIR="$1"
-
-    [[ -d "$DIR" ]] || die "Directory not found: $DIR"
 
 }
 
@@ -66,27 +67,27 @@ directory_exists() {
 
 }
 
+require_file() {
+
+    file_exists "$1" || die "File not found: $1"
+
+}
+
+require_directory() {
+
+    directory_exists "$1" || die "Directory not found: $1"
+
+}
+
 ensure_directory() {
 
     mkdir -p "$1"
 
 }
 
-files_equal() {
+safe_remove() {
 
-    local FILE1="$1"
-    local FILE2="$2"
-
-    cmp -s "$FILE1" "$FILE2"
-
-}
-
-copy_if_exists() {
-
-    local SRC="$1"
-    local DST="$2"
-
-    file_exists "$SRC" && cp "$SRC" "$DST"
+    rm -f "$@"
 
 }
 
@@ -99,43 +100,133 @@ move_file() {
 
 }
 
-###############################################################################
-# RouterOS helpers
-###############################################################################
+copy_file() {
 
-ros_log() {
+    local SRC="$1"
+    local DST="$2"
 
-    echo ":log info \"$*\""
+    cp "$SRC" "$DST"
 
 }
 
+files_equal() {
+
+    local FILE1="$1"
+    local FILE2="$2"
+
+    cmp -s "$FILE1" "$FILE2"
+
+}
+
+count_lines() {
+
+    local FILE="$1"
+
+    require_file "$FILE"
+
+    wc -l < "$FILE"
+
+}
+
+###############################################################################
+# Temporary directory
+###############################################################################
+
+clean_tmp() {
+
+    require_directory "$TMP_DIR"
+
+    info "Cleaning temporary directory"
+
+    find "$TMP_DIR" \
+        -mindepth 1 \
+        ! -name ".gitkeep" \
+        -delete
+
+}
+
+###############################################################################
+# Validation
+###############################################################################
+
+validate_json() {
+
+    require_file "$JSON_FILE"
+
+    jq -e '.version' "$JSON_FILE" >/dev/null \
+        || die "Invalid JSON."
+
+}
+
+check_txt_prefix_count() {
+
+    require_file "$CURRENT_TXT"
+
+    local COUNT
+
+    COUNT="$(count_lines "$CURRENT_TXT")"
+
+    info "IPv4 prefixes: ${COUNT}"
+
+    if [[ "$COUNT" -lt "$MIN_PREFIXES" ]]
+    then
+        die "Too few IPv4 prefixes (${COUNT})"
+    fi
+
+}
+
+###############################################################################
+# RouterOS header/footer
+###############################################################################
+
 write_ros_header() {
 
-    ros_log "${LOG_PREFIX}: ${SOURCE_NAME} build ${BUILD_TIME} (${COUNT} IPv4 prefixes)"
-    ros_log "${LOG_PREFIX}: update started"
+    local COUNT
 
-    echo
-    echo "/ip firewall address-list"
-    echo
+    COUNT="$(count_lines "$CURRENT_TXT")"
+
+    cat <<EOF
+:log info "${ADDRESS_LIST_NAME}: build ${BUILD_TIME} (${COUNT} IPv4 prefixes)"
+:log info "${ADDRESS_LIST_NAME}: update started"
+
+/ip firewall address-list
+
+EOF
 
 }
 
 write_ros_footer() {
 
-    echo
+    local COUNT
 
-    ros_log "${LOG_PREFIX}: update completed (${COUNT} IPv4 prefixes)"
+    COUNT="$(count_lines "$CURRENT_TXT")"
+
+    cat <<EOF
+
+:log info "${ADDRESS_LIST_NAME}: update completed (${COUNT} IPv4 prefixes)"
+EOF
 
 }
 
 ###############################################################################
-# JSON validation
+# IPv4 TXT generation
 ###############################################################################
 
-validate_json() {
+generate_ipv4_txt() {
 
-    jq -e '.rules[0].ip_cidr' "$JSON_FILE" >/dev/null \
-        || die "Invalid JSON structure."
+    require_file "$JSON_FILE"
+
+    info "Generating IPv4 TXT"
+
+    jq -r '
+    .rules[]
+    | select(.ip_cidr != null)
+    | .ip_cidr[]
+    | select(test(":") | not)
+' "$JSON_FILE" \
+| sort -u > "$CURRENT_TXT"
+
+    require_file "$CURRENT_TXT"
 
 }
 
@@ -143,100 +234,76 @@ validate_json() {
 # TXT validation
 ###############################################################################
 
-check_txt_prefix_count() {
+validate_txt() {
 
-    require_file "$NEW_TXT"
+    require_file "$CURRENT_TXT"
 
-    COUNT="$(count_lines "$NEW_TXT")"
+    info "Validating IPv4 TXT"
 
-    info "IPv4 prefixes: ${COUNT}"
-
-    if [[ "${COUNT}" -lt "${MIN_PREFIXES}" ]]
+    if grep -q ':' "$CURRENT_TXT"
     then
-        die "Too few IPv4 prefixes (${COUNT})."
+        die "IPv6 prefixes found in IPv4 TXT."
     fi
 
-}
-
-###############################################################################
-# IPv4 processing
-###############################################################################
-
-count_ipv4() {
-
-    jq '
-        [
-            .rules[0].ip_cidr[]
-            | select(test(":") | not)
-        ]
-        | length
-    ' "$JSON_FILE"
-
-}
-
-check_prefix_count() {
-
-    COUNT="$(count_ipv4)"
-
-    info "IPv4 prefixes: ${COUNT}"
-
-    if [[ "${COUNT}" -lt "${MIN_PREFIXES}" ]]
-    then
-        die "Too few IPv4 prefixes (${COUNT})."
-    fi
-
-}
-
-generate_ipv4_txt() {
-
-    jq -r '
-        .rules[0].ip_cidr[]
-        | select(test(":") | not)
-    ' "$JSON_FILE" \
-    | LC_ALL=C sort -u \
-    > "$NEW_TXT"
+    sort -c "$CURRENT_TXT" \
+        || die "TXT file is not sorted."
 
 }
 
 ###############################################################################
-# Diff helpers
+# Difference calculation
 ###############################################################################
 
 generate_add_txt() {
 
-    if [[ ! -f "$TXT_FILE" ]]
-    then
-        : > "$ADD_TXT"
-        return
-    fi
+    require_file "$TXT_FILE"
 
-    comm -13 "$TXT_FILE" "$NEW_TXT" > "$ADD_TXT"
+    require_file "$CURRENT_TXT"
+
+    info "Calculating added prefixes"
+
+    comm -13 \
+        "$TXT_FILE" \
+        "$CURRENT_TXT" \
+        > "$ADD_TXT"
 
 }
 
 generate_del_txt() {
 
-    if [[ ! -f "$TXT_FILE" ]]
-    then
-        : > "$DEL_TXT"
-        return
-    fi
+    require_file "$TXT_FILE"
 
-    comm -23 "$TXT_FILE" "$NEW_TXT" > "$DEL_TXT"
+    require_file "$CURRENT_TXT"
+
+    info "Calculating removed prefixes"
+
+    comm -23 \
+        "$TXT_FILE" \
+        "$CURRENT_TXT" \
+        > "$DEL_TXT"
 
 }
 
 ###############################################################################
-# Statistics
+# Difference statistics
 ###############################################################################
 
-count_lines() {
+count_add() {
 
-    local FILE="$1"
-
-    if [[ -f "$FILE" ]]
+    if file_exists "$ADD_TXT"
     then
-        wc -l < "$FILE"
+        count_lines "$ADD_TXT"
+    else
+        echo 0
+    fi
+
+}
+
+count_del() {
+
+    if file_exists "$DEL_TXT"
+    then
+        count_lines "$DEL_TXT"
     else
         echo 0
     fi
@@ -244,14 +311,170 @@ count_lines() {
 }
 
 ###############################################################################
-# Temporary files
+# Output validation
 ###############################################################################
 
-cleanup() {
+validate_add_txt() {
 
-    rm -f "$ADD_TXT"
-    rm -f "$DEL_TXT"
+    require_file "$ADD_TXT"
+
+    sort -c "$ADD_TXT" \
+        || die "ADD TXT is not sorted."
 
 }
 
-trap cleanup EXIT
+validate_del_txt() {
+
+    require_file "$DEL_TXT"
+
+    sort -c "$DEL_TXT" \
+        || die "DEL TXT is not sorted."
+
+}
+
+###############################################################################
+# Statistics
+###############################################################################
+
+print_statistics() {
+
+    local CURRENT_COUNT
+    local ADD_COUNT
+    local DEL_COUNT
+
+    CURRENT_COUNT="$(count_lines "$CURRENT_TXT")"
+    ADD_COUNT="$(count_add)"
+    DEL_COUNT="$(count_del)"
+
+    echo
+    echo "=================================================="
+    echo "Country      : ${COUNTRY^^}"
+    echo "IPv4 prefixes: ${CURRENT_COUNT}"
+    echo "Added        : ${ADD_COUNT}"
+    echo "Removed      : ${DEL_COUNT}"
+    echo "=================================================="
+    echo
+
+}
+
+###############################################################################
+# RouterOS generation
+###############################################################################
+
+generate_add_rsc() {
+
+    local BUILD_TIME
+    BUILD_TIME="$(timestamp)"
+
+    {
+
+        write_ros_header
+
+        while IFS= read -r PREFIX
+        do
+            [[ -z "$PREFIX" ]] && continue
+
+            printf 'add list=%s address=%s comment="%s"\n' \
+                "$ADDRESS_LIST_NAME" \
+                "$PREFIX" \
+                "$ADDRESS_COMMENT"
+
+        done < "$ADD_TXT"
+
+        write_ros_footer
+
+    } > "$ADD_RSC"
+
+}
+
+generate_del_rsc() {
+
+    local BUILD_TIME
+    BUILD_TIME="$(timestamp)"
+
+    {
+
+        write_ros_header
+
+        while IFS= read -r PREFIX
+        do
+            [[ -z "$PREFIX" ]] && continue
+
+            printf 'remove [find list="%s" address="%s" comment="%s"]\n' \
+                "$ADDRESS_LIST_NAME" \
+                "$PREFIX" \
+                "$ADDRESS_COMMENT"
+
+        done < "$DEL_TXT"
+
+        write_ros_footer
+
+    } > "$DEL_RSC"
+
+}
+
+###############################################################################
+# Output validation
+###############################################################################
+
+validate_full_rsc() {
+
+    require_file "$FULL_RSC"
+
+    local COUNT
+    local GENERATED
+
+    COUNT="$(count_lines "$CURRENT_TXT")"
+
+    GENERATED="$(grep -c '^add ' "$FULL_RSC")"
+
+    [[ "$COUNT" -eq "$GENERATED" ]] \
+        || die "FULL_RSC validation failed."
+
+}
+
+validate_add_rsc() {
+
+    file_exists "$ADD_RSC" || return 0
+
+    grep -q '^add ' "$ADD_RSC" \
+        || warn "ADD script contains no add commands."
+
+}
+
+validate_del_rsc() {
+
+    file_exists "$DEL_RSC" || return 0
+
+    grep -q '^remove ' "$DEL_RSC" \
+        || warn "DEL script contains no remove commands."
+
+}
+
+###############################################################################
+# Checksums
+###############################################################################
+
+print_sha256() {
+
+    local FILE="$1"
+
+    require_file "$FILE"
+
+    echo
+    sha256sum "$FILE"
+    echo
+
+}
+
+###############################################################################
+# Finish
+###############################################################################
+
+finish() {
+
+    clean_tmp
+
+}
+
+trap finish EXIT

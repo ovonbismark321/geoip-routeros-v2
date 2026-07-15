@@ -14,15 +14,13 @@ source "${SCRIPT_DIR}/common.sh"
 # Checks
 ###############################################################################
 
-require_file "$NEW_TXT"
+require_file "$CURRENT_TXT"
 
-mkdir -p "$OUTPUT_DIR"
+ensure_directory "$OUTPUT_DIR"
 
-COUNT="$(count_lines "$NEW_TXT")"
+COUNT="$(count_lines "$CURRENT_TXT")"
 
-BUILD_TIME="$(timestamp)"
-
-info "Generating ${FULL_RSC}"
+info "Generating full RouterOS script"
 
 ###############################################################################
 # Generate
@@ -33,6 +31,7 @@ info "Generating ${FULL_RSC}"
     write_ros_header
 
     echo "remove [find list=\"${ADDRESS_LIST_NAME}\" comment=\"${ADDRESS_COMMENT}\"]"
+
     echo
 
     while IFS= read -r PREFIX
@@ -45,20 +44,24 @@ info "Generating ${FULL_RSC}"
             "$PREFIX" \
             "$ADDRESS_COMMENT"
 
-    done < "$NEW_TXT"
+    done < "$CURRENT_TXT"
 
     write_ros_footer
 
 } > "$FULL_RSC"
 
 ###############################################################################
-# Statistics
+# Validation
 ###############################################################################
 
-LINES="$(count_lines "$FULL_RSC")"
+validate_full_rsc
+
+###############################################################################
+# Statistics
+###############################################################################
 
 info "Generated ${FULL_RSC}"
 
 info "IPv4 prefixes : ${COUNT}"
 
-info "RouterOS lines: ${LINES}"
+print_sha256 "$FULL_RSC"

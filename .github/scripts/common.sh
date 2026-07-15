@@ -181,6 +181,10 @@ check_txt_prefix_count() {
 
 write_ros_header() {
 
+    local BUILD_TIME
+
+    BUILD_TIME="$(timestamp)"
+
     local COUNT
 
     COUNT="$(count_lines "$CURRENT_TXT")"
@@ -219,12 +223,12 @@ generate_ipv4_txt() {
     info "Generating IPv4 TXT"
 
     jq -r '
-    .rules[]
-    | select(.ip_cidr != null)
-    | .ip_cidr[]
-    | select(test(":") | not)
-' "$JSON_FILE" \
-| sort -u > "$CURRENT_TXT"
+        .rules[]
+        | select(.ip_cidr != null)
+        | .ip_cidr[]
+        | select(test(":") | not)
+    ' "$JSON_FILE" \
+    | sort -u > "$CURRENT_TXT"
 
     require_file "$CURRENT_TXT"
 
@@ -363,9 +367,6 @@ print_statistics() {
 
 generate_add_rsc() {
 
-    local BUILD_TIME
-    BUILD_TIME="$(timestamp)"
-
     {
 
         write_ros_header
@@ -388,9 +389,6 @@ generate_add_rsc() {
 }
 
 generate_del_rsc() {
-
-    local BUILD_TIME
-    BUILD_TIME="$(timestamp)"
 
     {
 

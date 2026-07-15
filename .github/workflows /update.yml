@@ -1,1 +1,66 @@
+name: Update GEOIP_RU
 
+on:
+  workflow_dispatch:
+
+  schedule:
+    # Каждый день в 03:15 UTC
+    - cron: "15 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    env:
+      SINGBOX_VERSION: "1.12.0"
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download sing-box
+        run: |
+          wget -q \
+            https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz \
+            -O sing-box.tar.gz
+
+          tar -xzf sing-box.tar.gz
+
+          chmod +x sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box
+
+      - name: Download GEOIP RU SRS
+        run: |
+          wget -q \
+            https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs \
+            -O geoip-ru.srs
+
+      - name: Make scripts executable
+        run: |
+          chmod +x scripts/*.sh
+
+      - name: Build RouterOS files
+        run: |
+          ./scripts/build.sh
+
+      - name: Commit changes
+        run: |
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add output/
+
+          if git diff --cached --quiet
+          then
+            echo "No changes."
+            exit 0
+          fi
+
+          git commit -m "Update GEOIP_RU"
+
+          git push

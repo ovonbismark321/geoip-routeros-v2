@@ -46,6 +46,8 @@ JSON_FILE="${WORK_DIR}/geoip-${COUNTRY}.json"
 
 NEW_TXT="${WORK_DIR}/geoip-${COUNTRY}-ipv4.new"
 
+CURRENT_TXT="${WORK_DIR}/${SCRIPT_NAME_PREFIX}-ipv4.current"
+
 ###############################################################################
 # Output files
 ###############################################################################

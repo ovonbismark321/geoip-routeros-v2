@@ -13,7 +13,7 @@
 COUNTRY="ru"
 
 ###############################################################################
-# Data source
+# Source
 ###############################################################################
 
 SOURCE_NAME="SagerNet sing-geoip"
@@ -29,84 +29,84 @@ ADDRESS_LIST_NAME="GEOIP_RU"
 ADDRESS_COMMENT="${ADDRESS_LIST_NAME}_Auto"
 
 ###############################################################################
+# sing-box
+###############################################################################
+
+SINGBOX_VERSION="1.12.0"
+
+SINGBOX_ARCH="linux-amd64"
+
+SINGBOX_DIR="sing-box-${SINGBOX_VERSION}-${SINGBOX_ARCH}"
+
+SINGBOX_BINARY="./${SINGBOX_DIR}/sing-box"
+
+SINGBOX_URL="https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/${SINGBOX_DIR}.tar.gz"
+
+###############################################################################
 # Directories
 ###############################################################################
 
-WORK_DIR="."
+ROOT_DIR="$(pwd)"
 
-OUTPUT_DIR="output"
+SCRIPT_DIR="${ROOT_DIR}/scripts"
+
+OUTPUT_DIR="${ROOT_DIR}/output"
+
+TMP_DIR="${ROOT_DIR}/tmp"
 
 ###############################################################################
-# Working files
+# File name prefix
 ###############################################################################
 
-SRS_FILE="${WORK_DIR}/geoip-${COUNTRY}.srs"
+SCRIPT_NAME_PREFIX="geoip-${COUNTRY}"
 
-JSON_FILE="${WORK_DIR}/geoip-${COUNTRY}.json"
+###############################################################################
+# Temporary files
+###############################################################################
 
-NEW_TXT="${WORK_DIR}/geoip-${COUNTRY}-ipv4.new"
+SRS_FILE="${TMP_DIR}/${SCRIPT_NAME_PREFIX}.srs"
 
-CURRENT_TXT="${WORK_DIR}/${SCRIPT_NAME_PREFIX}-ipv4.current"
+JSON_FILE="${TMP_DIR}/${SCRIPT_NAME_PREFIX}.json"
+
+CURRENT_TXT="${TMP_DIR}/${SCRIPT_NAME_PREFIX}-ipv4.current"
+
+ADD_TXT="${TMP_DIR}/${SCRIPT_NAME_PREFIX}-ipv4.add"
+
+DEL_TXT="${TMP_DIR}/${SCRIPT_NAME_PREFIX}-ipv4.del"
 
 ###############################################################################
 # Output files
 ###############################################################################
 
-TXT_FILE="${OUTPUT_DIR}/geoip-${COUNTRY}-ipv4.txt"
+TXT_FILE="${OUTPUT_DIR}/${SCRIPT_NAME_PREFIX}-ipv4.txt"
 
-PREV_FILE="${OUTPUT_DIR}/geoip-${COUNTRY}-ipv4.prev"
+PREV_FILE="${OUTPUT_DIR}/${SCRIPT_NAME_PREFIX}-ipv4.prev"
 
-FULL_RSC="${OUTPUT_DIR}/geoip-${COUNTRY}.rsc"
+FULL_RSC="${OUTPUT_DIR}/${SCRIPT_NAME_PREFIX}.rsc"
 
-ADD_RSC="${OUTPUT_DIR}/geoip-${COUNTRY}-add.rsc"
+ADD_RSC="${OUTPUT_DIR}/${SCRIPT_NAME_PREFIX}-add.rsc"
 
-DEL_RSC="${OUTPUT_DIR}/geoip-${COUNTRY}-del.rsc"
+DEL_RSC="${OUTPUT_DIR}/${SCRIPT_NAME_PREFIX}-del.rsc"
 
 ###############################################################################
 # Validation
 ###############################################################################
 
-# Минимальное допустимое количество IPv4-префиксов
+# Minimum acceptable number of IPv4 prefixes
 MIN_PREFIXES=5000
 
 ###############################################################################
 # Logging
 ###############################################################################
 
-LOG_PREFIX="GEOIP_${COUNTRY^^}"
-
-BUILD_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-###############################################################################
-# Temporary files
-###############################################################################
-
-ADD_TXT="$(mktemp)"
-
-DEL_TXT="$(mktemp)"
+LOG_PREFIX="GEOIP"
 
 ###############################################################################
 # Helper functions
 ###############################################################################
 
-info() {
-    echo
-    echo "==> $*"
-}
+timestamp() {
 
-warn() {
-    echo
-    echo "WARNING: $*"
-}
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
 
-die() {
-    echo
-    echo "ERROR: $*"
-    exit 1
 }
-
-cleanup() {
-    rm -f "$ADD_TXT" "$DEL_TXT"
-}
-
-trap cleanup EXIT

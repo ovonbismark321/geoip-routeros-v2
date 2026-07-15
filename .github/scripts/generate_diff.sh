@@ -14,115 +14,66 @@ source "${SCRIPT_DIR}/common.sh"
 # Checks
 ###############################################################################
 
+require_file "$TXT_FILE"
 require_file "$CURRENT_TXT"
 
-ensure_directory "$OUTPUT_DIR"
-
-COUNT="$(count_lines "$CURRENT_TXT")"
-
-BUILD_TIME="$(timestamp)"
-
 ###############################################################################
-# First run
-###############################################################################
-
-if ! file_exists "$TXT_FILE"
-then
-
-    info "First run detected."
-
-    move_file "$CURRENT_TXT" "$TXT_FILE"
-
-    rm -f "$ADD_RSC"
-    rm -f "$DEL_RSC"
-
-    info "Initial TXT created."
-
-    exit 0
-
-fi
-
-###############################################################################
-# Calculate differences
+# Generate TXT differences
 ###############################################################################
 
 generate_add_txt
 generate_del_txt
 
-ADD_COUNT="$(count_lines "$ADD_TXT")"
-DEL_COUNT="$(count_lines "$DEL_TXT")"
+validate_add_txt
+validate_del_txt
 
-info "ADD prefixes : ${ADD_COUNT}"
-info "DEL prefixes : ${DEL_COUNT}"
-
-###############################################################################
-# Nothing changed
-###############################################################################
-
-if [[ "$ADD_COUNT" -eq 0 && "$DEL_COUNT" -eq 0 ]]
-then
-
-    info "No changes detected."
-
-    rm -f "$ADD_RSC"
-    rm -f "$DEL_RSC"
-
-    move_file "$CURRENT_TXT" "$TXT_FILE"
-
-    exit 0
-
-fi
+ADD_COUNT="$(count_add)"
+DEL_COUNT="$(count_del)"
 
 ###############################################################################
 # Generate ADD script
 ###############################################################################
 
-{
+if [[ "$ADD_COUNT" -gt 0 ]]
+then
 
-    write_ros_header
+    info "Generating ADD script (${ADD_COUNT} prefixes)"
 
-    while IFS= read -r PREFIX
-    do
+    generate_add_rsc
 
-        [[ -z "$PREFIX" ]] && continue
+    validate_add_rsc
 
-        printf 'add list=%s address=%s comment="%s"\n' \
-            "$ADDRESS_LIST_NAME" \
-            "$PREFIX" \
-            "$ADDRESS_COMMENT"
+else
 
-    done < "$ADD_TXT"
+    info "No added prefixes"
 
-    write_ros_footer
+    safe_remove "$ADD_RSC"
 
-} > "$ADD_RSC"
+fi
 
 ###############################################################################
 # Generate DEL script
 ###############################################################################
 
-{
+if [[ "$DEL_COUNT" -gt 0 ]]
+then
 
-    write_ros_header
+    info "Generating DEL script (${DEL_COUNT} prefixes)"
 
-    while IFS= read -r PREFIX
-    do
+    generate_del_rsc
 
-        [[ -z "$PREFIX" ]] && continue
+    validate_del_rsc
 
-        printf 'remove [find list="%s" address="%s" comment="%s"]\n' \
-            "$ADDRESS_LIST_NAME" \
-            "$PREFIX" \
-            "$ADDRESS_COMMENT"
+else
 
-    done < "$DEL_TXT"
+    info "No removed prefixes"
 
-    write_ros_footer
+    safe_remove "$DEL_RSC"
 
-} > "$DEL_RSC"
+fi
 
 ###############################################################################
-# Publish new TXT
+# Replace current TXT
 ###############################################################################
 
 move_file "$CURRENT_TXT" "$TXT_FILE"
@@ -131,8 +82,4 @@ move_file "$CURRENT_TXT" "$TXT_FILE"
 # Statistics
 ###############################################################################
 
-info "Incremental scripts generated."
-
-info "ADD : ${ADD_COUNT}"
-
-info "DEL : ${DEL_COUNT}"
+print_statistics

@@ -28,7 +28,7 @@ info "Generating full RouterOS script"
 
 {
 
-    write_ros_header
+    write_ros_header "$COUNT"
 
     echo "remove [find list=\"${ADDRESS_LIST_NAME}\" comment=\"${ADDRESS_COMMENT}\"]"
 
@@ -46,7 +46,7 @@ info "Generating full RouterOS script"
 
     done < "$CURRENT_TXT"
 
-    write_ros_footer
+    write_ros_footer "$COUNT"
 
 } > "$FULL_RSC"
 

@@ -54,6 +54,24 @@ require_directory() {
 # File helpers
 ###############################################################################
 
+file_exists() {
+
+    [[ -f "$1" ]]
+
+}
+
+directory_exists() {
+
+    [[ -d "$1" ]]
+
+}
+
+ensure_directory() {
+
+    mkdir -p "$1"
+
+}
+
 files_equal() {
 
     local FILE1="$1"
@@ -68,7 +86,7 @@ copy_if_exists() {
     local SRC="$1"
     local DST="$2"
 
-    [[ -f "$SRC" ]] && cp "$SRC" "$DST"
+    file_exists "$SRC" && cp "$SRC" "$DST"
 
 }
 
@@ -118,6 +136,25 @@ validate_json() {
 
     jq -e '.rules[0].ip_cidr' "$JSON_FILE" >/dev/null \
         || die "Invalid JSON structure."
+
+}
+
+###############################################################################
+# TXT validation
+###############################################################################
+
+check_txt_prefix_count() {
+
+    require_file "$NEW_TXT"
+
+    COUNT="$(count_lines "$NEW_TXT")"
+
+    info "IPv4 prefixes: ${COUNT}"
+
+    if [[ "${COUNT}" -lt "${MIN_PREFIXES}" ]]
+    then
+        die "Too few IPv4 prefixes (${COUNT})."
+    fi
 
 }
 

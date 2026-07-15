@@ -181,13 +181,11 @@ check_txt_prefix_count() {
 
 write_ros_header() {
 
+    local COUNT="$1"
+
     local BUILD_TIME
 
     BUILD_TIME="$(timestamp)"
-
-    local COUNT
-
-    COUNT="$(count_lines "$CURRENT_TXT")"
 
     cat <<EOF
 :log info "${ADDRESS_LIST_NAME}: build ${BUILD_TIME} (${COUNT} IPv4 prefixes)"
@@ -201,9 +199,7 @@ EOF
 
 write_ros_footer() {
 
-    local COUNT
-
-    COUNT="$(count_lines "$CURRENT_TXT")"
+    local COUNT="$1"
 
     cat <<EOF
 

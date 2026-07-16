@@ -1,0 +1,42 @@
+geoip-ru.srs
+      │
+      ▼
+geoip-ru.json
+      │
+      ▼
+geoip-ru_new.txt
+      │
+      ▼
+ ┌───────────────┐
+ │ generate_diff │
+ └───────┬───────┘
+         │
+         ├──────────────► geoip-ru-add-new.txt
+         │
+         ├──────────────► geoip-ru-del-new.txt
+         │
+         ▼
+workflow.state
+         │
+         ▼
+ ┌───────────────┐
+ │ generate_rsc  │
+ └───────┬───────┘
+         │
+         ├──────────────► geoip-ru_new.rsc
+         ├──────────────► geoip-ru-add-new.rsc
+         └──────────────► geoip-ru-del-new.rsc
+                           │
+                           ▼
+                    finalize.sh
+                           │
+                           ▼
+      ┌─────────────────────────────────────────────┐
+      │ geoip-ru.txt                               │
+      │ geoip-ru.rsc                               │
+      │ geoip-ru-add.txt                           │
+      │ geoip-ru-add.rsc                           │
+      │ geoip-ru-del.txt                           │
+      │ geoip-ru-del.rsc                           │
+      │ geoip-ru-log.rsc                           │
+      └─────────────────────────────────────────────┘

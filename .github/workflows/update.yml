@@ -10,100 +10,66 @@ permissions:
   contents: write
 
 jobs:
-  build:
-
+  update:
     runs-on: ubuntu-latest
-
-    env:
-      SINGBOX_VERSION: "1.12.0"
 
     steps:
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Create working directories
+        run: |
+          mkdir -p output
+          mkdir -p tmp
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
       - name: Download sing-box
         run: |
+          SINGBOX_VERSION="1.12.0"
+
           wget -q \
-            https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz \
-            -O sing-box.tar.gz
+            "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"
 
-          tar -xzf sing-box.tar.gz
+          tar -xzf "sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"
 
-          chmod +x sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box
+          sudo mv "sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box" /usr/local/bin/
 
-      - name: Download geoip-ru.srs
-        run: |
-          wget -q \
-            https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs \
-            -O geoip-ru.srs
+          rm -rf "sing-box-${SINGBOX_VERSION}-linux-amd64"
+          rm -f "sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"
 
-      - name: Decompile
-        run: |
-          ./sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box \
-            rule-set decompile \
-            --output geoip-ru.json \
-            geoip-ru.srs
+          sing-box version
 
-      - name: Validate JSON and generate RouterOS script
-        run: |
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
 
-          mkdir -p output
+      - name: Generate TXT
+        run: ./scripts/generate_txt.sh
 
-          if ! jq -e '.rules[0].ip_cidr' geoip-ru.json >/dev/null
-          then
-            echo "ip_cidr array not found!"
-            exit 1
-          fi
+#      - name: Generate DIFF
+#        run: ./scripts/generate_diff.sh
 
-          COUNT=$(jq '[.rules[0].ip_cidr[] | select(test(":")|not)] | length' geoip-ru.json)
+#      - name: Generate RouterOS (.rsc) files
+#        run: ./scripts/generate_rsc.sh
 
-          echo "IPv4 prefixes: ${COUNT}"
-
-          if [ "${COUNT}" -lt 5000 ]
-          then
-            echo "Too few IPv4 prefixes!"
-            exit 1
-          fi
-
-          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-          {
-
-            echo ":log info \"GEOIP_RU: SagerNet build ${BUILD_TIME} (${COUNT} IPv4 prefixes)\""
-            echo ":log info \"GEOIP_RU: update started\""
-            echo
-
-            echo "/ip firewall address-list"
-            echo
-
-            echo "remove [find list=\"GEOIP_RU\" comment=\"GEOIP_RU_Auto\"]"
-            echo
-
-            jq -r '
-              .rules[0].ip_cidr[]
-              | select(test(":") | not)
-              | "add list=GEOIP_RU address=\(.) comment=\"GEOIP_RU_Auto\""
-            ' geoip-ru.json
-
-            echo
-            echo ":log info \"GEOIP_RU: update completed (${COUNT} IPv4 prefixes)\""
-
-          } > output/geoip-ru.rsc
+#      - name: Finalize update
+#        run: ./scripts/finalize.sh
 
       - name: Commit changes
         run: |
-
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-          git add output/geoip-ru.rsc
-
-          if git diff --cached --quiet
-          then
-            echo "No changes."
+          if git diff --quiet; then
+            echo "No changes detected."
             exit 0
           fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
 
           git commit -m "Update GEOIP_RU"
 

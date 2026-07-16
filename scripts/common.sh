@@ -140,6 +140,32 @@ load_state() {
 
 #
 # ------------------------------------------------------------
+# RouterOS RSC generation
+# ------------------------------------------------------------
+#
+
+generate_rsc() {
+
+    local input_file="$1"
+    local output_file="$2"
+
+    require_file "${input_file}"
+
+    {
+        echo "/ip firewall address-list"
+
+        while IFS= read -r prefix; do
+            [[ -z "${prefix}" ]] && continue
+
+            echo "add list=${ADDRESS_LIST} address=${prefix} comment=${COMMENT}"
+        done < "${input_file}"
+
+    } > "${output_file}"
+
+}
+
+#
+# ------------------------------------------------------------
 # Cleanup
 # ------------------------------------------------------------
 #

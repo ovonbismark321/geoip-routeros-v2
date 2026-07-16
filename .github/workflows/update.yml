@@ -44,6 +44,17 @@ jobs:
 
           sing-box version
 
+      - name: Check Shell scripts syntax
+        run: |
+          for f in scripts/*.sh; do
+            echo "Checking $f"
+            bash -n "$f"
+          done
+
+      - name: Check Python syntax
+        run: |
+          python3 -m py_compile scripts/extract_ipv4.py
+
       - name: Make scripts executable
         run: chmod +x scripts/*.sh
 

@@ -46,7 +46,9 @@ require_file "${JSON_FILE}"
 
 info "Extracting IPv4 prefixes..."
 
-python3 "${SCRIPT_DIR}/extract_ipv4.py"
+python3 "${SCRIPT_DIR}/extract_ipv4.py" \
+    "${JSON_FILE}" \
+    "${NEW_TXT}"
 
 require_file "${NEW_TXT}"
 

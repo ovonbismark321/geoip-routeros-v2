@@ -57,7 +57,11 @@ require_file() {
 remove_file() {
     local file="$1"
 
-    [[ -f "$file" ]] && rm -f "$file"
+    if [[ -f "$file" ]]; then
+        rm -f "$file"
+    fi
+
+    return 0
 }
 
 #

@@ -50,14 +50,14 @@ jobs:
       - name: Generate TXT
         run: ./scripts/generate_txt.sh
 
-#      - name: Generate DIFF
-#        run: ./scripts/generate_diff.sh
+      - name: Generate DIFF
+        run: ./scripts/generate_diff.sh
 
-#      - name: Generate RouterOS (.rsc) files
-#        run: ./scripts/generate_rsc.sh
+      - name: Generate RouterOS (.rsc) files
+        run: ./scripts/generate_rsc.sh
 
-#      - name: Finalize update
-#        run: ./scripts/finalize.sh
+      - name: Finalize update
+        run: ./scripts/finalize.sh
 
       - name: Commit changes
         run: |

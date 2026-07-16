@@ -1,0 +1,16 @@
+# Changelog
+
+## v2.0.0
+
+Initial stable release
+
+Implemented:
+
+- SRS download
+- JSON conversion
+- IPv4 extraction
+- TXT generation
+- difference generation
+- RouterOS RSC generation
+- atomic update
+- RouterOS log generation

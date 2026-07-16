@@ -29,6 +29,8 @@ JSON_FILE="${TMP_DIR}/geoip-ru.json"
 
 NEW_TXT="${OUTPUT_DIR}/geoip-ru_new.txt"
 
+NEW_RSC="${OUTPUT_DIR}/geoip-ru-new.rsc"
+
 NEW_ADD_TXT="${OUTPUT_DIR}/geoip-ru-add-new.txt"
 NEW_DEL_TXT="${OUTPUT_DIR}/geoip-ru-del-new.txt"
 

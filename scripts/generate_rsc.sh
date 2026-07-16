@@ -28,7 +28,7 @@ require_file "${NEW_DEL_TXT}"
 # ------------------------------------------------------------
 #
 
-info "Generating geoip-ru-new.rsc..."
+info "Generating geoip-ru_new.rsc..."
 
 generate_rsc \
     "${NEW_TXT}" \

@@ -52,6 +52,10 @@ python3 "${SCRIPT_DIR}/extract_ipv4.py" \
 
 require_file "${NEW_TXT}"
 
+if [[ ! -s "${NEW_TXT}" ]]; then
+    error_exit "Generated TXT file is empty."
+fi
+
 #
 # ------------------------------------------------------------------
 # Normalize
